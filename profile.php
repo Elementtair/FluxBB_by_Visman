@@ -9,14 +9,9 @@
 define('PUN_ROOT', dirname(__FILE__).'/');
 require PUN_ROOT.'include/common.php';
 
-// Include UTF-8 function
-require PUN_ROOT.'include/utf8/substr_replace.php';
-require PUN_ROOT.'include/utf8/ucwords.php'; // utf8_ucwords needs utf8_substr_replace
-require PUN_ROOT.'include/utf8/strcasecmp.php';
-
-$action = isset($_GET['action']) ? $_GET['action'] : null;
-$section = isset($_GET['section']) ? $_GET['section'] : null;
-$id = isset($_GET['id']) ? intval($_GET['id']) : 0;
+$action = (string) ($_GET['action'] ?? '');
+$section = (string) ($_GET['section'] ?? '');
+$id = (int) ($_GET['id'] ?? 0);
 if ($id < 2)
 	message($lang_common['Bad request'], false, '404 Not Found');
 
@@ -40,7 +35,7 @@ require PUN_ROOT.'lang/'.$pun_user['language'].'/genders_integration.php';
 
 if ($action == 'change_pass')
 {
-	if (isset($_GET['key']))
+	if (isset($_GET['key']) && is_string($_GET['key']))
 	{
 		// If the user is already logged in we shouldn't be here :)
 		if (!$pun_user['is_guest'])
@@ -181,7 +176,7 @@ else if ($action == 'change_email')
 		}
 	}
 
-	if (isset($_GET['key']))
+	if (isset($_GET['key']) && is_string($_GET['key']))
 	{
 		$key = $_GET['key'];
 
@@ -563,7 +558,7 @@ else if (isset($_POST['update_forums']))
 		if (in_array($cur_forum['id'], $moderator_in) && !in_array($id, $cur_moderators))
 		{
 			$cur_moderators[$username] = $id;
-			uksort($cur_moderators, 'utf8_strcasecmp');
+			uksort($cur_moderators, 'pun_strcasecmp');
 
 			$db->query('UPDATE '.$db->prefix.'forums SET moderators=\''.$db->escape(serialize($cur_moderators)).'\' WHERE id='.$cur_forum['id']) or error('Unable to update forum', __FILE__, __LINE__, $db->error());
 		}
@@ -878,9 +873,9 @@ else if (isset($_POST['form_sent']))
 				{
 					// A list of words that the title may not contain
 					// If the language is English, there will be some duplicates, but it's not the end of the world
-					$forbidden = array('member', 'moderator', 'administrator', 'banned', 'guest', utf8_strtolower($lang_common['Member']), utf8_strtolower($lang_common['Moderator']), utf8_strtolower($lang_common['Administrator']), utf8_strtolower($lang_common['Banned']), utf8_strtolower($lang_common['Guest']));
+					$forbidden = array('member', 'moderator', 'administrator', 'banned', 'guest', mb_strtolower($lang_common['Member']), mb_strtolower($lang_common['Moderator']), mb_strtolower($lang_common['Administrator']), mb_strtolower($lang_common['Banned']), mb_strtolower($lang_common['Guest']));
 
-					if (in_array(utf8_strtolower($form['title']), $forbidden))
+					if (in_array(mb_strtolower($form['title']), $forbidden))
 						message($lang_profile['Forbidden title']);
 				}
 			}
@@ -893,9 +888,6 @@ else if (isset($_POST['form_sent']))
 			$form = array(
 				'jabber'		=> pun_trim($_POST['form']['jabber']),
 				'icq'			=> pun_trim($_POST['form']['icq']),
-				'msn'			=> pun_trim($_POST['form']['msn']),
-				'aim'			=> pun_trim($_POST['form']['aim']),
-				'yahoo'			=> pun_trim($_POST['form']['yahoo']),
 			);
 
 			// If the ICQ UIN contains anything other than digits it's invalid
@@ -919,8 +911,8 @@ else if (isset($_POST['form_sent']))
 					message(sprintf($lang_prof_reg['Sig too long'], $pun_config['p_sig_length'], pun_strlen($form['signature']) - $pun_config['p_sig_length']));
 				else if (substr_count($form['signature'], "\n") > ($pun_config['p_sig_lines']-1))
 					message(sprintf($lang_prof_reg['Sig too many lines'], $pun_config['p_sig_lines']));
-				else if ($form['signature'] && $pun_config['p_sig_all_caps'] == '0' && is_all_uppercase($form['signature']) && !$pun_user['is_admmod'])
-					$form['signature'] = utf8_ucwords(utf8_strtolower($form['signature']));
+				else if ($form['signature'] && !$pun_user['is_admmod'] && $pun_config['p_sig_all_caps'] == '0' && is_all_uppercase($form['signature']))
+					$form['signature'] = mb_strtolower($form['signature']);
 
 				// Validate BBCode syntax
 				if ($pun_config['p_sig_bbcode'] == '1')
@@ -1064,7 +1056,7 @@ else if (isset($_POST['form_sent']))
 				{
 					unset($cur_moderators[$old_username]);
 					$cur_moderators[$form['username']] = $id;
-					uksort($cur_moderators, 'utf8_strcasecmp');
+					uksort($cur_moderators, 'pun_strcasecmp');
 
 					$db->query('UPDATE '.$db->prefix.'forums SET moderators=\''.$db->escape(serialize($cur_moderators)).'\' WHERE id='.$cur_forum['id']) or error('Unable to update forum', __FILE__, __LINE__, $db->error());
 				}
@@ -1089,7 +1081,7 @@ flux_hook('profile_after_form_handling');
 
 
 // мод пола - add "g.g_pm, u.messages_enable," - New PMS - Visman
-$result = $db->query('SELECT u.username, u.gender, u.email, u.title, u.realname, u.url, u.jabber, u.icq, u.msn, u.aim, u.yahoo, u.location, u.signature, u.disp_topics, u.disp_posts, u.email_setting, u.notify_with_post, u.auto_notify, u.show_smilies, u.show_img, u.show_img_sig, u.show_avatars, u.show_sig, u.timezone, u.dst, u.language, u.style, u.num_posts, u.last_post, u.registered, u.registration_ip, u.admin_note, u.date_format, u.time_format, u.last_visit, u.messages_enable, g.g_id, g.g_user_title, g.g_moderator, g.g_pm FROM '.$db->prefix.'users AS u LEFT JOIN '.$db->prefix.'groups AS g ON g.g_id=u.group_id WHERE u.id='.$id) or error('Unable to fetch user info', __FILE__, __LINE__, $db->error());
+$result = $db->query('SELECT u.username, u.gender, u.email, u.title, u.realname, u.url, u.jabber, u.icq, u.location, u.signature, u.disp_topics, u.disp_posts, u.email_setting, u.notify_with_post, u.auto_notify, u.show_smilies, u.show_img, u.show_img_sig, u.show_avatars, u.show_sig, u.timezone, u.dst, u.language, u.style, u.num_posts, u.last_post, u.registered, u.registration_ip, u.admin_note, u.date_format, u.time_format, u.last_visit, u.messages_enable, g.g_id, g.g_user_title, g.g_moderator, g.g_pm FROM '.$db->prefix.'users AS u LEFT JOIN '.$db->prefix.'groups AS g ON g.g_id=u.group_id WHERE u.id='.$id) or error('Unable to fetch user info', __FILE__, __LINE__, $db->error());
 $user = $db->fetch_assoc($result);
 
 if (!$user)
@@ -1178,24 +1170,6 @@ if ($pun_user['id'] != $id &&																	// If we aren't the user (i.e. edi
 	{
 		$user_messaging[] = '<dt>'.$lang_profile['ICQ'].'</dt>';
 		$user_messaging[] = '<dd>'.$user['icq'].'</dd>';
-	}
-
-	if ($user['msn'] != '')
-	{
-		$user_messaging[] = '<dt>'.$lang_profile['MSN'].'</dt>';
-		$user_messaging[] = '<dd>'.pun_htmlspecialchars(($pun_config['o_censoring'] == '1') ? censor_words($user['msn']) : $user['msn']).'</dd>';
-	}
-
-	if ($user['aim'] != '')
-	{
-		$user_messaging[] = '<dt>'.$lang_profile['AOL IM'].'</dt>';
-		$user_messaging[] = '<dd>'.pun_htmlspecialchars(($pun_config['o_censoring'] == '1') ? censor_words($user['aim']) : $user['aim']).'</dd>';
-	}
-
-	if ($user['yahoo'] != '')
-	{
-		$user_messaging[] = '<dt>'.$lang_profile['Yahoo'].'</dt>';
-		$user_messaging[] = '<dd>'.pun_htmlspecialchars(($pun_config['o_censoring'] == '1') ? censor_words($user['yahoo']) : $user['yahoo']).'</dd>';
 	}
 
 	$user_personality = array();
@@ -1597,9 +1571,6 @@ else
 							<input type="hidden" name="csrf_hash" value="<?php echo csrf_hash() ?>" />
 							<label><?php echo $lang_profile['Jabber'] ?><br /><input id="jabber" type="text" name="form[jabber]" value="<?php echo pun_htmlspecialchars($user['jabber']) ?>" size="40" maxlength="75" /><br /></label>
 							<label><?php echo $lang_profile['ICQ'] ?><br /><input id="icq" type="text" name="form[icq]" value="<?php echo $user['icq'] ?>" size="12" maxlength="12" /><br /></label>
-							<label><?php echo $lang_profile['MSN'] ?><br /><input id="msn" type="text" name="form[msn]" value="<?php echo pun_htmlspecialchars($user['msn']) ?>" size="40" maxlength="50" /><br /></label>
-							<label><?php echo $lang_profile['AOL IM'] ?><br /><input id="aim" type="text" name="form[aim]" value="<?php echo pun_htmlspecialchars($user['aim']) ?>" size="20" maxlength="30" /><br /></label>
-							<label><?php echo $lang_profile['Yahoo'] ?><br /><input id="yahoo" type="text" name="form[yahoo]" value="<?php echo pun_htmlspecialchars($user['yahoo']) ?>" size="20" maxlength="30" /><br /></label>
 						</div>
 					</fieldset>
 				</div>

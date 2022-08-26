@@ -39,14 +39,16 @@ function generate_bans_cache()
 	global $db;
 
 	// Get the ban list from the DB
-	$result = $db->query('SELECT * FROM '.$db->prefix.'bans', true) or error('Unable to fetch ban list', __FILE__, __LINE__, $db->error());
+	$result = $db->query('SELECT id, username, ip, email, message, expire FROM '.$db->prefix.'bans', true) or error('Unable to fetch ban list', __FILE__, __LINE__, $db->error());
 
 	$output = array();
-	while ($cur_ban = $db->fetch_assoc($result))
+	while ($cur_ban = $db->fetch_assoc($result)) {
+		$cur_ban['username'] = $cur_ban['username'] != '' ? mb_strtolower($cur_ban['username']) : null;
 		$output[] = $cur_ban;
+	}
 
 	// Output ban list as PHP code
-	$content = '<?php'."\n\n".'define(\'PUN_BANS_LOADED\', 1);'."\n\n".'$pun_bans = '.var_export($output, true).';'."\n\n".'?>';
+	$content = '<?php'."\n\n".'define(\'PUN_SVA_BANS_LOADED\', 1);'."\n\n".'$pun_bans = '.var_export($output, true).';'."\n\n".'?>';
 	fluxbb_write_cache_file('cache_bans.php', $content);
 }
 

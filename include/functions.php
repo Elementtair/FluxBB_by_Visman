@@ -405,7 +405,7 @@ function check_bans()
 	$add = strpos($user_ip, '.') !== false ? '.' : ':';
 	$user_ip .= $add;
 
-	$username = utf8_strtolower($pun_user['username']);
+	$username = mb_strtolower($pun_user['username']);
 
 	$bans_altered = false;
 	$is_banned = false;
@@ -420,10 +420,12 @@ function check_bans()
 			continue;
 		}
 
-		if ($cur_ban['username'] != '' && $username == utf8_strtolower($cur_ban['username']))
+		if (! $pun_user['is_guest'] && $cur_ban['username'] != '' && $username == $cur_ban['username']) {
 			$is_banned = true;
+			$suffix = '';
+		}
 
-		if ($cur_ban['ip'] != '')
+		else if ($cur_ban['ip'] != '')
 		{
 			$cur_ban_ips = explode(' ', $cur_ban['ip']);
 
@@ -436,6 +438,7 @@ function check_bans()
 				if (substr($user_ip, 0, strlen($cur_ban_ips[$i])) == $cur_ban_ips[$i])
 				{
 					$is_banned = true;
+					$suffix = ' ip';
 					break;
 				}
 			}
@@ -443,8 +446,12 @@ function check_bans()
 
 		if ($is_banned)
 		{
-			$db->query('DELETE FROM '.$db->prefix.'online WHERE ident=\''.$db->escape($pun_user['username']).'\'') or error('Unable to delete from online list', __FILE__, __LINE__, $db->error());
-			message($lang_common['Ban message'].' '.(($cur_ban['expire'] != '') ? $lang_common['Ban message 2'].' '.strtolower(format_time($cur_ban['expire'], true)).'. ' : '').(($cur_ban['message'] != '') ? $lang_common['Ban message 3'].'<br /><br /><strong>'.pun_htmlspecialchars($cur_ban['message']).'</strong><br /><br />' : '<br /><br />').$lang_common['Ban message 4'].' <a href="mailto:'.pun_htmlspecialchars($pun_config['o_admin_email']).'">'.pun_htmlspecialchars($pun_config['o_admin_email']).'</a>.', true);
+			if (! $pun_user['is_guest']) {
+				$db->query('DELETE FROM '.$db->prefix.'online WHERE ident=\''.$db->escape($pun_user['username']).'\'') or error('Unable to delete from online list', __FILE__, __LINE__, $db->error());
+			}
+
+			$prefix = $lang_common['Ban message' . $suffix] ?? $lang_common['Ban message'];
+			message($prefix.' '.(($cur_ban['expire'] != '') ? $lang_common['Ban message 2'].' '.strtolower(format_time($cur_ban['expire'], true)).'. ' : '').(($cur_ban['message'] != '') ? $lang_common['Ban message 3'].'<br /><br /><strong>'.pun_htmlspecialchars($cur_ban['message']).'</strong><br /><br />' : '<br /><br />').$lang_common['Ban message 4'].' <a href="mailto:'.pun_htmlspecialchars($pun_config['o_admin_email']).'">'.pun_htmlspecialchars($pun_config['o_admin_email']).'</a>.', true);
 		}
 	}
 
@@ -464,10 +471,7 @@ function check_bans()
 //
 function check_username($username, $exclude_id = null)
 {
-	global $db, $pun_config, $errors, $lang_prof_reg, $lang_register, $lang_common, $pun_bans;
-
-	// Include UTF-8 function
-	require_once PUN_ROOT.'include/utf8/strcasecmp.php';
+	global $db, $pun_config, $errors, $lang_prof_reg, $lang_register, $lang_common;
 
 	// Convert multiple whitespace characters into one (to prevent people from registering with indistinguishable usernames)
 	$username = preg_replace('%\s+%s', ' ', $username);
@@ -479,7 +483,7 @@ function check_username($username, $exclude_id = null)
 		$errors[] = $lang_prof_reg['Username too long'];
 	else if (!preg_match('%^\p{L}[\p{L}\p{N}_ ]+$%uD', $username)) // строгая проверка имени пользователя - Visman
 		$errors[] = $lang_prof_reg['Username Error'];
-	else if (!strcasecmp($username, 'Guest') || !utf8_strcasecmp($username, $lang_common['Guest']))
+	else if (!strcasecmp($username, 'Guest') || !pun_strcasecmp($username, $lang_common['Guest']))
 		$errors[] = $lang_prof_reg['Username guest'];
 	else if (preg_match('%[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}%', $username) || preg_match('%((([0-9A-Fa-f]{1,4}:){7}[0-9A-Fa-f]{1,4})|(([0-9A-Fa-f]{1,4}:){6}:[0-9A-Fa-f]{1,4})|(([0-9A-Fa-f]{1,4}:){5}:([0-9A-Fa-f]{1,4}:)?[0-9A-Fa-f]{1,4})|(([0-9A-Fa-f]{1,4}:){4}:([0-9A-Fa-f]{1,4}:){0,2}[0-9A-Fa-f]{1,4})|(([0-9A-Fa-f]{1,4}:){3}:([0-9A-Fa-f]{1,4}:){0,3}[0-9A-Fa-f]{1,4})|(([0-9A-Fa-f]{1,4}:){2}:([0-9A-Fa-f]{1,4}:){0,4}[0-9A-Fa-f]{1,4})|(([0-9A-Fa-f]{1,4}:){6}((\b((25[0-5])|(1\d{2})|(2[0-4]\d)|(\d{1,2}))\b)\.){3}(\b((25[0-5])|(1\d{2})|(2[0-4]\d)|(\d{1,2}))\b))|(([0-9A-Fa-f]{1,4}:){0,5}:((\b((25[0-5])|(1\d{2})|(2[0-4]\d)|(\d{1,2}))\b)\.){3}(\b((25[0-5])|(1\d{2})|(2[0-4]\d)|(\d{1,2}))\b))|(::([0-9A-Fa-f]{1,4}:){0,5}((\b((25[0-5])|(1\d{2})|(2[0-4]\d)|(\d{1,2}))\b)\.){3}(\b((25[0-5])|(1\d{2})|(2[0-4]\d)|(\d{1,2}))\b))|([0-9A-Fa-f]{1,4}::([0-9A-Fa-f]{1,4}:){0,5}[0-9A-Fa-f]{1,4})|(::([0-9A-Fa-f]{1,4}:){0,6}[0-9A-Fa-f]{1,4})|(([0-9A-Fa-f]{1,4}:){1,7}:))%', $username))
 		$errors[] = $lang_prof_reg['Username IP'];
@@ -504,13 +508,8 @@ function check_username($username, $exclude_id = null)
 	}
 
 	// Check username for any banned usernames
-	foreach ($pun_bans as $cur_ban)
-	{
-		if ($cur_ban['username'] != '' && utf8_strtolower($username) == utf8_strtolower($cur_ban['username']))
-		{
-			$errors[] = $lang_prof_reg['Banned username'];
-			break;
-		}
+	if (isset(get_usernames_banlist()[mb_strtolower($username)])) {
+		$errors[] = $lang_prof_reg['Banned username'];
 	}
 }
 
@@ -916,6 +915,28 @@ function censor_words($text)
 	return $text;
 }
 
+//
+// This function returns an array in which the banned usernames are the keys - Visman
+//
+function get_usernames_banlist()
+{
+	global $pun_bans;
+	static $ban_list;
+
+	if (! isset($ban_list))
+	{
+		$ban_list = [];
+
+		foreach ($pun_bans as $cur_ban) {
+			if (is_string($cur_ban['username'])) {
+				$ban_list[$cur_ban['username']] = true;
+			}
+		}
+	}
+
+	return $ban_list;
+}
+
 
 //
 // Determines the correct title for $user
@@ -923,20 +944,10 @@ function censor_words($text)
 //
 function get_title($user)
 {
-	global $pun_bans, $lang_common, $pun_config;
-	static $ban_list;
-
-	// If not already built in a previous call, build an array of lowercase banned usernames
-	if (!isset($ban_list))
-	{
-		$ban_list = array();
-
-		foreach ($pun_bans as $cur_ban)
-			$ban_list[] = utf8_strtolower($cur_ban['username']);
-	}
+	global $lang_common, $pun_config;
 
 	// If the user is banned
-	if (in_array(utf8_strtolower($user['username']), $ban_list))
+	if (isset(get_usernames_banlist()[mb_strtolower($user['username'])]))
 		$user_title = $lang_common['Banned'];
 	// If the user has a custom title
 	else if ($user['title'] != '')
@@ -963,17 +974,29 @@ function paginate($num_pages, $cur_page, $link)
 	global $lang_common;
 
 	$pages = array();
-	$link_to_all = false;
-
-	// If $cur_page == -1, we link to all pages (used in viewforum.php)
-	if ($cur_page == -1)
-	{
-		$cur_page = 1;
-		$link_to_all = true;
-	}
 
 	if ($num_pages <= 1)
-		$pages = array('<strong class="item1">1</strong>');
+	{
+		$pages = $cur_page < 0 ? [] : ['<strong class="item1">1</strong>'];
+	}
+	// If $cur_page == -1, we link to all pages (used in viewforum.php)
+	else if ($cur_page == -1)
+	{
+		if ($num_pages > 999)
+			$d = 2;
+		else if ($num_pages > 99)
+			$d = 3;
+		else
+			$d = min(4, $num_pages - 2);
+
+		$current = $num_pages - $d;
+
+		if ($current > 2)
+			$pages[] = '<span class="spacer">'.$lang_common['Spacer'].'</span>';
+
+		for ($current; $current <= $num_pages; ++$current)
+			$pages[] = '<a href="'.$link.'&amp;p='.$current.'">'.forum_number_format($current).'</a>';
+	}
 	else
 	{
 		// Add a previous page link
@@ -993,7 +1016,7 @@ function paginate($num_pages, $cur_page, $link)
 		{
 			if ($current < 1 || $current > $num_pages)
 				continue;
-			else if ($current != $cur_page || $link_to_all)
+			else if ($current != $cur_page)
 				$pages[] = '<a'.(empty($pages) ? ' class="item1"' : '').' href="'.$link.($current == 1 ? '' : '&amp;p='.$current).'">'.forum_number_format($current).'</a>';
 			else
 				$pages[] = '<strong'.(empty($pages) ? ' class="item1"' : '').'>'.forum_number_format($current).'</strong>';
@@ -1008,7 +1031,7 @@ function paginate($num_pages, $cur_page, $link)
 		}
 
 		// Add a next page link
-		if ($num_pages > 1 && !$link_to_all && $cur_page < $num_pages)
+		if ($num_pages > 1 && $cur_page < $num_pages)
 			$pages[] = '<a rel="next"'.(empty($pages) ? ' class="item1"' : '').' href="'.$link.'&amp;p='.($cur_page +1).'">'.$lang_common['Next'].'</a>';
 	}
 
@@ -1316,11 +1339,11 @@ function pun_htmlspecialchars_decode($str)
 
 
 //
-// A wrapper for utf8_strlen for compatibility
+// A wrapper for mb_strlen for compatibility
 //
 function pun_strlen($str)
 {
-	return utf8_strlen($str);
+	return mb_strlen($str);
 }
 
 
@@ -1338,15 +1361,32 @@ function pun_linebreaks($str)
 //
 function pun_trim($str, $charlist = false)
 {
-	return is_string($str) ? utf8_trim($str, $charlist) : '';
+	if (is_string($charlist)) {
+		$charlist = preg_quote($charlist, '%');
+		$str = preg_replace('%^[' . $charlist . ']+%u', '', $str);
+
+		return preg_replace('%[' . $charlist . ']+$%u', '', $str);
+	} else {
+		return trim($str);
+	}
 }
+
 
 //
 // Checks if a string is in all uppercase
 //
 function is_all_uppercase($string)
 {
-	return utf8_strtoupper($string) == $string && utf8_strtolower($string) != $string;
+	return mb_strtoupper($string) === $string && mb_strtolower($string) !== $string;
+}
+
+
+//
+// strcmp() for UTF-8 - Visman
+//
+function pun_strcasecmp($strX, $strY)
+{
+	return strcmp(mb_strtolower($strX), mb_strtolower($strY));
 }
 
 
@@ -1683,11 +1723,11 @@ H2 {MARGIN: 0; COLOR: #FFFFFF; BACKGROUND-COLOR: #B84623; FONT-SIZE: 1.1em; PADD
 	{
 		$file = str_replace(realpath(PUN_ROOT), '', $file);
 
-		echo "\t\t".'<strong>File:</strong> '.$file.'<br />'."\n\t\t".'<strong>Line:</strong> '.$line.'<br /><br />'."\n\t\t".'<strong>FluxBB reported</strong>: '.$message."\n";
+		echo "\t\t".'<strong>File:</strong> '.pun_htmlspecialchars($file).'<br />'."\n\t\t".'<strong>Line:</strong> '.((int) $line).'<br /><br />'."\n\t\t".'<strong>FluxBB reported</strong>: '.pun_htmlspecialchars($message)."\n";
 
 		if ($db_error)
 		{
-			echo "\t\t".'<br /><br /><strong>Database reported:</strong> '.pun_htmlspecialchars($db_error['error_msg']).(($db_error['error_no']) ? ' (Errno: '.$db_error['error_no'].')' : '')."\n";
+			echo "\t\t".'<br /><br /><strong>Database reported:</strong> '.pun_htmlspecialchars($db_error['error_msg']).($db_error['error_no'] ? ' (Errno: '.$db_error['error_no'].')' : '')."\n";
 
 			if ($db_error['error_sql'] != '')
 				echo "\t\t".'<br /><br /><strong>Failed query:</strong> '.pun_htmlspecialchars($db_error['error_sql'])."\n";

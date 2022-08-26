@@ -65,7 +65,7 @@ if (!defined('FORUM_EXTERN_MAX_SUBJECT_LENGTH'))
 	define('FORUM_EXTERN_MAX_SUBJECT_LENGTH', 30);
 
 // If we're a guest and we've sent a username/pass, we can try to authenticate using those details
-if ($pun_user['is_guest'] && isset($_SERVER['PHP_AUTH_USER']))
+if ($pun_user['is_guest'] && isset($_SERVER['PHP_AUTH_USER'], $_SERVER['PHP_AUTH_PW']))
 	authenticate_user($_SERVER['PHP_AUTH_USER'], $_SERVER['PHP_AUTH_PW']);
 
 if ($pun_user['g_read_board'] == '0')
@@ -253,8 +253,8 @@ function output_html($feed)
 
 	foreach ($feed['items'] as $item)
 	{
-		if (utf8_strlen($item['title']) > FORUM_EXTERN_MAX_SUBJECT_LENGTH)
-			$subject_truncated = pun_htmlspecialchars(pun_trim(utf8_substr($item['title'], 0, (FORUM_EXTERN_MAX_SUBJECT_LENGTH - 5)))).' …';
+		if (pun_strlen($item['title']) > FORUM_EXTERN_MAX_SUBJECT_LENGTH)
+			$subject_truncated = pun_htmlspecialchars(pun_trim(mb_substr($item['title'], 0, (FORUM_EXTERN_MAX_SUBJECT_LENGTH - 5)))).' …';
 		else
 			$subject_truncated = pun_htmlspecialchars($item['title']);
 

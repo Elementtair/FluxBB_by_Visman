@@ -6,10 +6,20 @@
  * License: http://www.gnu.org/licenses/gpl.html GPL version 2 or higher
  */
 
+// Disable error reporting for uninitialized variables
+error_reporting(E_ALL);
+
+// Force POSIX locale (to prevent functions such as strtolower() from messing up UTF-8 strings)
+setlocale(LC_CTYPE, 'C');
+
+mb_language('uni');
+mb_internal_encoding('UTF-8');
+mb_substitute_character(0xFFFD);
+
 // The FluxBB version this script installs
 define('FORUM_VERSION', '1.5.11');
 
-define('FORUM_VER_REVISION', 83);	// номер сборки - Visman
+define('FORUM_VER_REVISION', 84);	// номер сборки - Visman
 
 define('FORUM_DB_REVISION', 21);
 define('FORUM_SI_REVISION', 2.1);
@@ -30,17 +40,8 @@ header('Content-type: text/html; charset=utf-8');
 // Load the functions script
 require PUN_ROOT.'include/functions.php';
 
-// Load UTF-8 functions
-require PUN_ROOT.'include/utf8/utf8.php';
-
 // Strip out "bad" UTF-8 characters
 forum_remove_bad_characters();
-
-// Disable error reporting for uninitialized variables
-error_reporting(E_ALL);
-
-// Force POSIX locale (to prevent functions such as strtolower() from messing up UTF-8 strings)
-setlocale(LC_CTYPE, 'C');
 
 // Turn off PHP time limit
 @set_time_limit(0);
@@ -92,14 +93,14 @@ function generate_config_file()
 	global $db_type, $db_host, $db_name, $db_username, $db_password, $db_prefix, $cookie_name, $cookie_seed;
 
 	return '<?php'."\n\n"
-		.'$db_type = \''.$db_type."';\n"
-		.'$db_host = \''.$db_host."';\n"
+		.'$db_type = \''.addslashes($db_type)."';\n"
+		.'$db_host = \''.addslashes($db_host)."';\n"
 		.'$db_name = \''.addslashes($db_name)."';\n"
 		.'$db_username = \''.addslashes($db_username)."';\n"
 		.'$db_password = \''.addslashes($db_password)."';\n"
 		.'$db_prefix = \''.addslashes($db_prefix)."';\n"
 		.'$p_connect = false;'."\n\n"
-		.'$cookie_name = '."'".$cookie_name."';\n"
+		.'$cookie_name = \''.addslashes($cookie_name)."';\n"
 		.'$cookie_domain = '."'';\n"
 		.'$cookie_path = '."'/';\n"
 		.'$cookie_secure = 0;'."\n"
@@ -143,7 +144,7 @@ if (isset($_POST['generate_config']))
 if (!isset($_POST['form_sent']))
 {
 	// Make an educated guess regarding base_url
-	$base_url  = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] == 'on') ? 'https://' : 'http://';	// protocol
+	$base_url  = !empty($_SERVER['HTTPS']) && strtolower($_SERVER['HTTPS']) != 'off' ? 'https://' : 'http://';	// protocol
 	$base_url .= preg_replace('%:(80|443)$%', '', $_SERVER['HTTP_HOST']);							// host[:port]
 	$base_url .= str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME']));							// path
 
